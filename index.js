@@ -11,7 +11,9 @@ const client = createClient({
   url: process.env.REDIS_URL
 });
 
-client.on("error", (err) => console.log("Redis Error ❌", err));
+client.on("error", (err) => {
+  console.log("Redis Error ❌", err);
+});
 
 // =======================
 // ROUTES
@@ -24,57 +26,77 @@ app.get("/", (req, res) => {
 
 // TEACH
 app.post("/teach", async (req, res) => {
-  const { ask, ans } = req.body;
+  try {
+    const { ask, ans } = req.body;
 
-  if (!ask || !ans) {
-    return res.json({ error: "Missing data" });
+    if (!ask || !ans) {
+      return res.json({ error: "Missing ask or ans" });
+    }
+
+    await client.set(ask.toLowerCase(), ans);
+
+    res.json({ success: true });
+
+  } catch (e) {
+    res.json({ error: "Teach failed" });
   }
-
-  await client.set(ask.toLowerCase(), ans);
-
-  res.json({ success: true });
 });
 
 // DELETE
 app.post("/delete", async (req, res) => {
-  const { key } = req.body;
+  try {
+    const { key } = req.body;
 
-  if (!key) {
-    return res.json({ error: "Missing key" });
+    if (!key) {
+      return res.json({ error: "Missing key" });
+    }
+
+    await client.del(key.toLowerCase());
+
+    res.json({ success: true });
+
+  } catch (e) {
+    res.json({ error: "Delete failed" });
   }
-
-  await client.del(key.toLowerCase());
-
-  res.json({ success: true });
 });
 
 // CHAT
 app.get("/chat", async (req, res) => {
-  const text = req.query.text?.toLowerCase();
+  try {
+    const text = req.query.text?.toLowerCase();
 
-  if (!text) {
-    return res.json({ reply: "No text" });
+    if (!text) {
+      return res.json({ reply: "No text" });
+    }
+
+    const reply = await client.get(text);
+
+    res.json({
+      reply: reply || "I don't know"
+    });
+
+  } catch (e) {
+    res.json({ reply: "Error occurred" });
   }
-
-  const reply = await client.get(text);
-
-  return res.json({
-    reply: reply || "I don't know"
-  });
 });
 
 // =======================
 // START SERVER (IMPORTANT FIX)
 // =======================
 async function start() {
-  await client.connect();
-  console.log("Redis Connected ✔");
+  try {
+    await client.connect();
+    console.log("Redis Connected ✔");
 
-  const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 3000;
 
-  app.listen(PORT, () => {
-    console.log("Server running on " + PORT);
-  });
+    app.listen(PORT, () => {
+      console.log("Server running on " + PORT);
+    });
+
+  } catch (e) {
+    console.log("Server crash ❌", e);
+  }
 }
 
 start();
